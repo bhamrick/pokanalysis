@@ -17,6 +17,7 @@
  */
 
 #include "pokerom.h"
+#include<stdio.h>
 
 static PyObject *get_trainer(u8 *stream, int id, int set_id)
 {
@@ -34,6 +35,8 @@ static PyObject *get_trainer(u8 *stream, int id, int set_id)
     addr = ROM_ADDR(0xE, GET_ADDR(class_addr));
     for (i = 1; i < set_id; i++)
         while (stream[addr++]);
+
+    PyDict_SetItemString(trainer, "offset", Py_BuildValue("i", addr));
 
     // parse trainer team
     // TODO: handle pkmn with special moves
@@ -69,7 +72,7 @@ static PyObject *get_pokemon(u8 *stream, int pkmn_id, int level)
     return pkmn;
 }
 
-void add_trainer(struct rom *rom, int map_id, int x, int y, int extra1, int extra2)
+PyObject *add_trainer(struct rom *rom, int map_id, int x, int y, int extra1, int extra2)
 {
     PyObject *(*f[])(u8*, int, int) = {get_pokemon, get_trainer};
     PyObject *trainer = f[extra1 > 0xc8](rom->stream, extra1, extra2);
@@ -78,6 +81,7 @@ void add_trainer(struct rom *rom, int map_id, int x, int y, int extra1, int extr
     PyDict_SetItemString(trainer, "x",      Py_BuildValue("i", x));
     PyDict_SetItemString(trainer, "y",      Py_BuildValue("i", y));
     PyList_Append(rom->trainers, trainer);
+    return trainer;
 }
 
 PyObject *get_trainers(struct rom *self)

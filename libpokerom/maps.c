@@ -373,7 +373,11 @@ static struct submap *get_submap(struct rom *rom, struct submap *maps, int id, i
             PyDict_SetItemString(entity_dict, "trainer_type", Py_BuildValue("i", entity->extra_1));
             PyDict_SetItemString(entity_dict, "pkmn_set",     Py_BuildValue("i", entity->extra_2));
             addr += 2;
-            add_trainer(rom, id, entity->x-4, entity->y-4, entity->extra_1, entity->extra_2);
+            PyObject* trainer = add_trainer(rom, id, entity->x-4, entity->y-4, entity->extra_1, entity->extra_2);
+            if(entity->extra_1 > 0xc8) {
+                PyDict_SetItemString(entity_dict, "trainer_name", PyDict_GetItemString(trainer, "name"));
+                PyDict_SetItemString(entity_dict, "trainer_offset", PyDict_GetItemString(trainer, "offset"));
+            }
         } else if (entity->tid & 1<<7) {
             char iname[30];
 
@@ -474,6 +478,8 @@ static struct coords process_submap(struct submap *map)
     for (map = map_start; map; map = map->next) {
         map->coords.x -= xmin;
         map->coords.y -= ymin;
+        PyDict_SetItemString(map->info, "map_x", Py_BuildValue("i", map->coords.x));
+        PyDict_SetItemString(map->info, "map_y", Py_BuildValue("i", map->coords.y));
     }
 
     s.x = -xmin + xmax;
@@ -494,6 +500,27 @@ static void insert_objects(PyObject *objects, PyObject *items, int x, int y)
 
             PyDict_SetItem(objects, Py_BuildValue("ii", xx, yy), item);
         }
+    }
+}
+
+static PyObject* special_item_dict(PyObject *item) {
+    PyObject *dict = PyDict_New();
+    PyDict_SetItemString(dict, "x", PyTuple_GetItem(item, 0));
+    PyDict_SetItemString(dict, "y", PyTuple_GetItem(item, 1));
+    PyDict_SetItemString(dict, "item_name", PyTuple_GetItem(item, 2));
+    PyDict_SetItemString(dict, "bank", PyTuple_GetItem(item, 3));
+    PyDict_SetItemString(dict, "faddr", PyTuple_GetItem(item, 4));
+    return dict;
+}
+
+static void insert_special_items(PyObject *objects, PyObject *items, int x, int y) {
+    PyObject *data = PyDict_GetItemString(items, "special-items");
+    for (int i = 0; i < PyList_Size(data); i++) {
+        PyObject *item = PyList_GetItem(data, i);
+        long xx = PyLong_AsLong(PyTuple_GetItem(item, 1)) + x;
+        long yy = PyLong_AsLong(PyTuple_GetItem(item, 0)) + y;
+        
+        PyDict_SetItem(objects, Py_BuildValue("ii", xx, yy), special_item_dict(item));
     }
 }
 
@@ -524,6 +551,7 @@ static struct map get_final_map(struct submap *map)
 
         insert_objects(map->objects, map->info, 0, 0);
         insert_objects(final_map.objects, map->info, x, y);
+        insert_special_items(final_map.objects, map->info, x, y);
 
         if (final_map.id == 0 || (final_map.id != 0 && map->id < final_map.id))
             final_map.id = map->id;

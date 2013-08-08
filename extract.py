@@ -24,9 +24,28 @@ def write_map_png(outfile, map_data):
     im = Image.open(StringIO(ppm_string(32*map_data['map_w'], 32*map_data['map_h'], map_data['map_pic'])))
     im.save(outfile)
 
+def object_description(object_data):
+    if 'item_name' in object_data:
+        # Items
+        return object_data['item_name']
+    elif 'text' in object_data:
+        # Signs
+        return object_data['text']
+    elif 'to_map' in object_data:
+        # Warps, don't display anything
+        return ""
+    elif 'trainer_name' in object_data:
+        # Trainers
+        return "%s<br/>\nOffset: 0x%X" % (object_data['trainer_name'], object_data['trainer_offset'])
+    else:
+        return json.dumps(object_data)
+
 def object_string(location, object_data):
-    popup_text = json.dumps(object_data)
-    return """
+    popup_text = object_description(object_data)
+    if not popup_text:
+        return ""
+    else:
+        return """
 <div class="object" style="position:absolute; top:%(obj_y)dpx; left:%(obj_x)dpx; width:%(obj_w)dpx; height:%(obj_h)dpx">
 <div class="popup triangle-border">
 %(text)s
@@ -50,16 +69,18 @@ def write_map_page(map_data):
     page_data = """
 <html>
 <head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <style media="screen" type="text/css">
 .popup {
     position:absolute;
-    width: 300px;
+    width: 150px;
     bottom: -20px;
     left:-53px;
     background: white;
+    text-align: center;
 }
 .triangle-border {
-    padding:15px;
+    padding:5px;
     margin: 1em 0 3em;
     color:#000;
     -moz-border-radius: 10px;
@@ -98,7 +119,7 @@ def write_map_page(map_data):
 </style>
 </head>
 <body>
-<div id="map%(id)dimg" style="background: url(%(img)s); width:%(img_w)dpx; height:%(img_h)dpx">
+<div id="map%(id)dimg" style="background: url(%(img)s); width:%(img_w)dpx; height:%(img_h)dpx;">
 %(objects)s
 </div>
 </body>
