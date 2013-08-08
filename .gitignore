@@ -2,3 +2,5 @@ build
 pokerom.so
 tags
 tests/results
+out/
+pokered.gbc

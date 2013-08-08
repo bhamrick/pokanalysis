@@ -25,7 +25,7 @@ def write_map_png(outfile, map_data):
     im.save(outfile)
 
 def object_description(object_data):
-    if 'item_name' in object_data:
+    if object_data.get('bank') == 29 and object_data.get('faddr') == 26248:
         # Items
         return object_data['item_name']
     elif 'text' in object_data:
@@ -38,7 +38,8 @@ def object_description(object_data):
         # Trainers
         return "%s<br/>\nOffset: 0x%X" % (object_data['trainer_name'], object_data['trainer_offset'])
     else:
-        return json.dumps(object_data)
+        # This includes things like other NPCs and the pokemon on the overworld
+        return "Not a trainer or item"
 
 def object_string(location, object_data):
     popup_text = object_description(object_data)
@@ -58,13 +59,26 @@ def object_string(location, object_data):
         'obj_h': 16,
     }
 
-def write_map_page(map_data):
+def map_string(map_data):
     map_image_file = 'out/map%d.png' % map_data['id']
-    map_html_file = 'out/map%d.html' % map_data['id']
 
     write_map_png(map_image_file, map_data)
 
-    objects_data = "\n".join(object_string(loc, data) for loc, data in map_data['objects'].iteritems())
+    object_data = "\n".join(object_string(loc, data) for loc, data in map_data['objects'].iteritems())
+    return """
+<div id="map%(id)dimg" style="background: url(%(img)s); width:%(img_w)dpx; height:%(img_h)dpx;">
+%(objects)s
+</div>
+""" % {'id': map_data['id'],
+       'img': "file://%s" % os.path.abspath(map_image_file),
+       'img_w': 32*map_data['map_w'],
+       'img_h': 32*map_data['map_h'],
+       'objects': object_data}
+
+def write_map_page(map_data):
+    map_html_file = 'out/map%d.html' % map_data['id']
+
+    map_str = map_string(map_data)
 
     page_data = """
 <html>
@@ -110,26 +124,19 @@ def write_map_page(map_data):
     display:block;
     width:0;
 }
-#map%(id)dimg .object .popup {
+.object .popup {
     display: none;
 }
-#map%(id)dimg .object:hover .popup {
+.object:hover .popup {
     display: block;
 }
 </style>
 </head>
 <body>
-<div id="map%(id)dimg" style="background: url(%(img)s); width:%(img_w)dpx; height:%(img_h)dpx;">
-%(objects)s
-</div>
+%(map_str)s
 </body>
 </html>
-""" % {'id': map_data['id'],
-       'img': "file://%s" % os.path.abspath(map_image_file),
-       'img_w': 32*map_data['map_w'],
-       'img_h': 32*map_data['map_h'],
-       'objects': objects_data,
-    }
+""" % {'map_str': map_str}
 
     with open(map_html_file, "w") as f:
         f.write(page_data)
@@ -151,7 +158,8 @@ def main():
     write_map_ppm('out/overworld.ppm', maps[0])
     write_map_png('out/overworld.png', maps[0])
 
-    write_map_page(maps[0])
+    for m in maps:
+        write_map_page(m)
 
 if __name__ == '__main__':
     main()
