@@ -26,7 +26,10 @@ def write_map_png(outfile, map_data):
 
 def object_description(object_data):
     if object_data.get('bank') == 29 and object_data.get('faddr') == 26248:
-        # Items
+        # Hidden Items
+        return object_data['item_name']
+    elif 'item_name' in object_data:
+        # Nonhidden items, but also triggers on PCs and such
         return object_data['item_name']
     elif 'text' in object_data:
         # Signs
@@ -53,8 +56,8 @@ def object_string(location, object_data):
 </div>
 </div>""" % {
         'text': popup_text,
-        'obj_x': 16*location[0]+8,
-        'obj_y': 16*location[1]+8,
+        'obj_x': 16*location[0],
+        'obj_y': 16*location[1],
         'obj_w': 16,
         'obj_h': 16,
     }
@@ -66,7 +69,7 @@ def map_string(map_data):
 
     object_data = "\n".join(object_string(loc, data) for loc, data in map_data['objects'].iteritems())
     return """
-<div id="map%(id)dimg" style="background: url(%(img)s); width:%(img_w)dpx; height:%(img_h)dpx;">
+<div id="map%(id)dimg" style="background: url(%(img)s); width:%(img_w)dpx; height:%(img_h)dpx; position:relative;">
 %(objects)s
 </div>
 """ % {'id': map_data['id'],
