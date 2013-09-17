@@ -154,3 +154,19 @@ indices = {
     189: "WEEPINBELL",
     190: "VICTREEBEL",
     }
+
+encounter_slots = [
+    0x32 - (-1),
+    0x65 - 0x32,
+    0x8c - 0x65,
+    0xa5 - 0x8c,
+    0xbe - 0xa5,
+    0xd7 - 0xbe,
+    0xe4 - 0xd7,
+    0xf1 - 0xe4,
+    0xfc - 0xf1,
+    0xff - 0xfc,
+    ]
+
+# Percentage form of previous list, rounded to be human readable
+encounter_pcts = [20, 20, 15, 10, 10, 10, 5, 5, 4, 1]

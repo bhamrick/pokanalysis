@@ -4,4 +4,5 @@ tags
 tests/results
 out/
 pokered.gbc
+pokeblue.gbc
 *.pyc

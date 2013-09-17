@@ -2,22 +2,22 @@
 import sys
 
 import pokerom
-from biglist import indices
+from biglist import indices, encounter_pcts
 
 def print_maps(maps):
     for m in maps:
         for sm in m['info']:
             if sm['wild-pkmn']:
                 print "Submap ID %d" % sm['id']
-                print sm['wild-pkmn']
                 if 'grass' in sm['wild-pkmn']:
                     print "Grass rate %d:" % sm['wild-pkmn']['grass-rate']
-                    for (level, index) in sm['wild-pkmn']['grass']:
-                        print "L%d %s" % (level, indices[index])
+                    for i, (level, index) in enumerate(sm['wild-pkmn']['grass']):
+                        print "%2d%% L%d %s" % (encounter_pcts[i], level, indices[index])
                 if 'water' in sm['wild-pkmn']:
                     print "Water rate %d:" % sm['wild-pkmn']['water-rate']
-                    for (level, index) in sm['wild-pkmn']['water']:
-                        print "L%d %s" % (level, indices[index])
+                    for i, (level, index) in enumerate(sm['wild-pkmn']['water']):
+                        print "%2d%% L%d %s" % (encounter_pcts[i], level, indices[index])
+                print
 
 def main(rom):
     maps = rom.get_maps()
