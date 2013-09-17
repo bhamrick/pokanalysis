@@ -4,3 +4,4 @@ tags
 tests/results
 out/
 pokered.gbc
+*.pyc
