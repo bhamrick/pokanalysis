@@ -2,12 +2,19 @@
 
 import os
 import os.path
-import simplejson as json
+try:
+    import simplejson as json
+except ImportError:
+    import json
 import sys
 
 import pokerom
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    print >>sys.stderr, "PIL not loaded, not writing images"
+    Image = None
 from StringIO import StringIO
 
 def ppm_string(width, height, data):
@@ -21,6 +28,8 @@ def write_map_ppm(outfile, map_data):
     write_ppm(outfile, 32*map_data['map_w'], 32*map_data['map_h'], map_data['map_pic'])
 
 def write_map_png(outfile, map_data):
+    if Image is None:
+        return
     im = Image.open(StringIO(ppm_string(32*map_data['map_w'], 32*map_data['map_h'], map_data['map_pic'])))
     im.save(outfile)
 
@@ -77,6 +86,94 @@ def map_string(map_data):
        'img_w': 32*map_data['map_w'],
        'img_h': 32*map_data['map_h'],
        'objects': object_data}
+
+def compute_warps(maps):
+    maps_by_id = {}
+    submaps_by_id = {}
+    overworld_maps = set()
+    for m in maps:
+        maps_by_id[m['id']] = m
+        m['warps'] = []
+        for submap in m['info']:
+            submap['main_map'] = m
+            submaps_by_id[submap['id']] = submap
+    visited_maps = set()
+    def walk(submap, last_overworld_map):
+        visited_maps.add(submap['id'])
+        if submap['main_map']['id'] == 1:
+            last_overworld_map = submap['id']
+        for idx, w in enumerate(submap['warps']):
+            w_dict = {
+                'x': w['x'] + submap['map_x'],
+                'y': w['y'] + submap['map_y'],
+                'on_submap': submap['id'],
+                'warp_index': idx,
+                'to_submap': w['to_map'],
+                'to_warp': w['to_point'],
+                }
+            if w['to_map'] in submaps_by_id:
+                w_dict['computed_to_submap'] = w['to_map']
+            else:
+                w_dict['computed_to_submap'] = last_overworld_map
+            w_dict['to_map'] = submaps_by_id[w_dict['computed_to_submap']]['main_map']['id']
+            to_submap = submaps_by_id[w_dict['computed_to_submap']]
+            try:
+                to_warp = to_submap['warps'][w['to_point']]
+                w_dict['to_x'] = to_warp['x'] + to_submap['map_x']
+                w_dict['to_y'] = to_warp['y'] + to_submap['map_y']
+            except IndexError:
+                w_dict['to_x'] = 0
+                w_dict['to_y'] = 0
+            submap['main_map']['warps'].append(w_dict)
+            if w['to_map'] in submaps_by_id and w['to_map'] not in visited_maps:
+                walk(submaps_by_id[w['to_map']], last_overworld_map)
+        for c in submap['connections']:
+            if c['index'] not in visited_maps:
+                walk(submaps_by_id[c['index']], last_overworld_map)
+
+    walk(submaps_by_id[0], 0)
+
+def write_map_json(map_data):
+    map_json_file = 'out/json/%d.json' % map_data['id']
+
+    map_dict = {}
+    map_dict['warps'] = []
+    map_dict['objects'] = []
+    map_dict['map_img'] = '/static/images/rb/map%d.png' % map_data['id']
+    map_dict['map_px_w'] = 32*map_data['map_w']
+    map_dict['map_px_h'] = 32*map_data['map_h']
+
+    if map_data['id'] == 1:
+        # Special case for overworld minimap
+        map_dict['minimap_img'] = '/static/images/rb/map1_small.png'
+        map_dict['minimap_w'] = 200
+        map_dict['minimap_h'] = 212
+
+    for loc, o in map_data['objects'].iteritems():
+        o_data = {
+            'px_x': 16*loc[0],
+            'px_y': 16*loc[1],
+            'px_w': 16,
+            'px_h': 16,
+            'description': object_description(o)
+            }
+        map_dict['objects'].append(o_data)
+
+    for w in map_data['warps']:
+        w_data = {
+            'x': w['x'],
+            'y': w['y'],
+            'to_map': w['to_map'],
+            'to_x': w['to_x'],
+            'to_y': w['to_y'],
+            'index': 'submap %d warp %d' % (w['on_submap'], w['warp_index']),
+            'to_submap': w['to_submap'],
+            'to_index': w['to_warp'],
+            }
+        map_dict['warps'].append(w_data)
+
+    with open(map_json_file, 'w') as f:
+        f.write(json.dumps(map_dict))
 
 def write_map_page(map_data):
     map_html_file = 'out/map%d.html' % map_data['id']
@@ -153,16 +250,24 @@ def main():
         if os.path.exists('out/'):
             print 'Output directory location taken!'
             return
-        os.mkdir(OUTPUT_DIRECTORY)
+        os.mkdir('out/')
+
+    if not os.path.isdir('out/json/'):
+        if os.path.exists('out/json/'):
+            print 'JSON output directory location taken!'
+            return
+        os.mkdir('out/json')
 
     rom = pokerom.ROM(sys.argv[1])
 
     maps = rom.get_maps()
+    compute_warps(maps)
     write_map_ppm('out/overworld.ppm', maps[0])
     write_map_png('out/overworld.png', maps[0])
 
     for m in maps:
         write_map_page(m)
+        write_map_json(m)
 
 if __name__ == '__main__':
     main()
