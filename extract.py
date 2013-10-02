@@ -169,6 +169,7 @@ def write_map_json(map_data):
             'index': 'submap %d warp %d' % (w['on_submap'], w['warp_index']),
             'to_submap': w['to_submap'],
             'to_index': w['to_warp'],
+            'description': 'On submap %d index %d\nTo submap %d index %d' % (w['on_submap'], w['warp_index'], w['computed_to_submap'], w['to_warp']),
             }
         map_dict['warps'].append(w_data)
 
